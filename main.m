@@ -1,5 +1,5 @@
 function main
-% Stirling Engine Analysis & Flywheel Design — Step 1 (Scaffold + Volumes)
+% Stirling Engine Analysis & Flywheel Design — (Scaffold + Volumes)
 % One-file submission; all helpers are local functions below.
 % After this step: volumes are validated and a diagnostic figure is saved.
 
