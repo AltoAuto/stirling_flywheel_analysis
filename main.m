@@ -3,7 +3,7 @@ function main
 % One-file submission; all helpers are local functions below.
 % After this step: volumes are validated and a diagnostic figure is saved.
 
-    % output file saved path
+    % HOUSE KEEPING
     format compact
     rng(0);                              
     thisFile = mfilename('fullpath'); 
