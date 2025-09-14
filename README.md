@@ -1,6 +1,7 @@
 # Stirling Flywheel Analysis
 
-MATLAB implementation of a **beta-type Stirling engine analysis and flywheel design**, developed for **ME 4053: Energy Conversion & Storage (Fall 2025, University of Minnesota)**.
+MATLAB implementation of a **beta-type Stirling engine analysis and flywheel design**
+developed for **ME 4053: Energy Conversion & Storage (Fall 2025, University of Minnesota)**.
 
 The project models a Stirling engine with crank–slider kinematics for both the displacer and power piston, computes torque and power output, and sizes a flywheel that meets the design specifications in Appendix B. The analysis is fully parametric and produces all required plots automatically.
 
