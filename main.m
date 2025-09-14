@@ -12,7 +12,7 @@ function main
         mkdir(OUTDIR);
   end
 
-  % #1# Scope & Guardrails  %
+  % #P-1# Scope & Guardrails  %
   spec = spec_from_tableB_placeholder(); % TODO: replace with real Table B.1 later
   const.f     = spec.RPM/60;
   const.omega = 2*pi*const.f;
