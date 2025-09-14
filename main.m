@@ -5,10 +5,14 @@ function main
 
   format compact
   rng(0);                                % reproducibility
-  OUTDIR = fullfile(pwd,'outputs');
-  if ~exist(OUTDIR,'dir'), mkdir(OUTDIR); end
+  thisFile = mfilename('fullpath'); 
+  thisDir  = fileparts(thisFile);
+  OUTDIR = fullfile(thisDir, 'outputs');
+  if ~exist(OUTDIR, 'dir')
+        mkdir(OUTDIR);
+  end
 
-  % Phase 0 — Scope & Guardrails  %
+  % #1# Scope & Guardrails  %
   spec = spec_from_tableB_placeholder(); % TODO: replace with real Table B.1 later
   const.f     = spec.RPM/60;
   const.omega = 2*pi*const.f;
