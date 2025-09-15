@@ -48,9 +48,7 @@ function main
     
     banner(spec, assume, T, gas, geom, OUTDIR);
     
-    %---------------------------------------%
-    % Phase 1 — Kinematics → Volumes(θ)     %
-    %---------------------------------------%
+    % 1 — Kinematics → Volumes(θ)
     [Vh, Vc, Vtot, Vp, Vs] = volumes(theta, geom);
     
     % Basic hygiene checks
@@ -68,7 +66,7 @@ function main
     % Next steps (in following messages): pressure, PV loop, torque/power, energy/J, speed ripple, phase sweep.
     end
     
-    % ======================= Local functions =======================
+    % ==================== LOCAL FUNCTION =====================
     
     function spec = spec_from_tableB_placeholder()
     % Placeholder for course specs (Table B.1) — update later with the real values.
