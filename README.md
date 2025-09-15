@@ -50,7 +50,7 @@ The script will:
 ```
 stirling-flywheel-analysis/
 │
-├──project_foler/   # project guideline (property of university of minnesota)
+├── project_foler/   # project guideline (property of university of minnesota)
 ├── main.m          # one-file MATLAB implementation
 ├── outputs/        # auto-saved plots + summary.csv
 ├── report/         # executive summary draft & figures
