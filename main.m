@@ -14,15 +14,15 @@ function main
     end
     fprintf('Output Folder Read: %s\n',OUTDIR);
 
-    %% CONFIG/SPECS (Value are GPT generated)
+    %% CONFIG/SPECS
     spec.RPM  = 650;          % Ω (rpm)            
     spec.Cs   = 0.003;        % Cf (fraction)     
-    spec.Pmin = 5.00e5;       % Pa at BDC          
-    spec.CR   = 1.20;         % Compression ratio  
+    spec.Pmin = 5.00e5;       % Pa at BDC
+    spec.CR   = 1.20;         % Compression ratio
     
     % Temperatures [K] (Table B.1)
-    T.Th = 900;               % hot-side           << edit here
-    T.Tc = 300;               % cold-side          << edit here
+    T.Th = 900;               % hot-side
+    T.Tc = 300;               % cold-side
     T.Tr = 0.5*(T.Th + T.Tc); % regenerator (lumped assumption)
     
     % Derived kinematics
@@ -30,7 +30,7 @@ function main
     const.omega = 2*pi*const.f;     % rad/s
     
     % ---- Working fluid (Table B.1) ----
-    fluid = "air";                    % "air" | "helium" | "hydrogen"  << edit here
+    fluid = "air";
     switch lower(fluid)
       case "air",      gas.R = 287;
       case "helium",   gas.R = 2077;
@@ -41,17 +41,17 @@ function main
     
     % ---- Geometry (Table B.1) ----
     % Power piston (crank-slider)
-    geom.r   = 0.025;          % power-piston crank length [m]        << edit here
-    geom.L   = 0.075;          % power-piston conrod length [m]       << edit here
-    geom.bore_p = 0.050;       % cylinder bore [m] (φ)                << edit here
+    geom.r   = 0.025;          % power-piston crank length [m]
+    geom.L   = 0.075;          % power-piston conrod length [m]
+    geom.bore_p = 0.050;       % cylinder bore [m] (φ)
     geom.A_p = pi*(geom.bore_p/2)^2;  % derived piston area [m^2]
     
     % Displacer (use volume-driven shuttle from Table B)
-    Vdisp      = 3.0e-5;       % displacer volume [m^3]               << edit here
+    Vdisp      = 3.0e-5;       % displacer volume [m^3]
     geom.Vs_amp = Vdisp/2;     % sinusoid amplitude ⇒ zero-mean shuttle
     
-    geom.phi = deg2rad(90);    % phase shift ψ [deg → rad]            << edit here
-    geom.Vr  = 2.00e-5;        % regenerator dead volume [m^3]        << edit here
+    geom.phi = deg2rad(90);    % phase shift ψ [deg → rad]
+    geom.Vr  = 2.00e-5;        % regenerator dead volume [m^3]
     
     % Guard
     assert(geom.L >= 2*geom.r, 'Geometry error: need L >= 2*r for slider-crank.');
@@ -121,7 +121,6 @@ function main
     Vr_bdc = geom.Vr;
     
     % Back-solve m from Schmidt relation at BDC:
-    % p = mR / (Vh/Th + Vc/Tc + Vr/Tr)  =>  m = p/R * (Vh/Th + Vc/Tc + Vr/Tr)
     gas.m = calibrate_mass_from_Pmin(spec.Pmin, Vh_bdc, Vc_bdc, Vr_bdc, T, gas.R);
     
     fprintf('Calibrated gas mass from Pmin: m = %.6e kg (BDC)\n', gas.m);
@@ -169,9 +168,17 @@ function main
     fprintf('  v_min=%.3e at θ=%.1f deg | v_max=%.3e at θ=%.1f deg\n', ...
             vmn, (jmn-1)/(numel(v_spec)-1)*360, vmx, (jmx-1)/(numel(v_spec)-1)*360);
 
-    % PV PLOT — Engine vs Ideal Stirling (Fig A)
-    v_spec = Vtot ./ gas.m;                         % specific volume (m^3/kg)
-    plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR,'physical'); % saves FigA_PV.png
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % By default, plot_pv_cycle overlays a "normalized" ideal Stirling cycle, 
+    % scaled to the engine’s pressure range to allow direct comparison with 
+    % the simulated loop. Passing the option "physical" instead produces the 
+    % textbook ideal cycle based on the calibrated gas mass and volumes. 
+    % In that case, the cycle pressures will be orders of magnitude smaller 
+    % and may appear near zero on the plot. Both modes are correct: 
+    %   - "normalized" is intended for visual comparison, 
+    %   - "physical" is the exact theoretical reference.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, 'normalized');   % saves FigA_PV.png
 end
 
 
@@ -264,24 +271,42 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
   Vmin  = min(Vtot); Vmax = max(Vtot);
   vmin  = Vmin/gas.m; vmax = Vmax/gas.m;
 
-  switch lower(string(mode))
-    case "physical"
-      % True ideal isotherms (may be tiny if m is small and v is large)
-      mR  = gas.m * gas.R;
-      p_tl = (mR*T.Th)/vmin;  p_tr = (mR*T.Th)/vmax;
-      p_bl = (mR*T.Tc)/vmin;  p_br = (mR*T.Tc)/vmax;
+  % Build ideal Stirling isotherms (hyperbolas) between vmin and vmax
+  mR    = gas.m * gas.R;
 
-    otherwise  % "normalized" — scale ideal to engine pressure band
-      % Put top isotherm at engine max pressure, bottom at (Tc/Th) times that.
-      p_tl = p_max;                  p_tr = p_max;                    % Th line (flat)
-      p_bl = p_max * (T.Tc/T.Th);    p_br = p_max * (T.Tc/T.Th);      % Tc line (flat)
+  % Base (physical) curves
+  v_iso_inc = linspace(vmin, vmax, 400);       % increasing v
+  v_iso_dec = linspace(vmax, vmin, 400);       % decreasing v
+  p_hot_phys_inc  = (mR*T.Th) ./ v_iso_inc;    % Th, expand: vmin->vmax
+  p_cold_phys_dec = (mR*T.Tc) ./ v_iso_dec;    % Tc, compress: vmax->vmin
+
+  % Optional normalization for visual overlay
+  if strcmpi(string(mode),'normalized')
+    k = p_max / ((mR*T.Th)/vmin);              % anchor Th at (vmin, p_max)
+  else
+    k = 1.0;
   end
+  p_hot  = k * p_hot_phys_inc;
+  p_cold = k * p_cold_phys_dec;
 
-  % Draw the 4 sides explicitly (no extra vertical lines)
-  plot([vmin vmax], [p_tl p_tr]/1e3, '--', 'LineWidth',1.3, 'DisplayName','Ideal (Th)');
-  plot([vmax vmax], [p_tr p_br]/1e3,  ':', 'LineWidth',1.2, 'DisplayName','Ideal iso');
-  plot([vmax vmin], [p_br p_bl]/1e3, '--', 'LineWidth',1.3, 'DisplayName','Ideal (Tc)');
-  plot([vmin vmin], [p_bl p_tl]/1e3,  ':', 'LineWidth',1.2, 'DisplayName','Ideal iso');
+  % Corner pressures (shared exactly by segments to avoid gaps)
+  p_hot_vmax  = p_hot(end);                    % Th at v = vmax
+  p_cold_vmax = p_cold(1);                     % Tc at v = vmax
+  p_cold_vmin = p_cold(end);                   % Tc at v = vmin
+  p_hot_vmin  = p_hot(1);                      % Th at v = vmin
+
+  % Plot hot isotherm (Th): vmin -> vmax
+  plot(v_iso_inc, p_hot/1e3, '--', 'LineWidth',1.3, 'DisplayName','Ideal isotherm Th');
+
+  % Isochoric cooling at v = vmax: down from Th(vmax) to Tc(vmax)
+  plot([vmax vmax], [p_hot_vmax p_cold_vmax]/1e3, ':', 'LineWidth',1.2, 'DisplayName','Isochoric (cool)');
+
+  % Plot cold isotherm (Tc): vmax -> vmin (cycle direction)
+  plot(v_iso_dec, p_cold/1e3, '--', 'LineWidth',1.3, 'DisplayName','Ideal isotherm Tc');
+
+  % Isochoric heating at v = vmin: up from Tc(vmin) to Th(vmin)
+  plot([vmin vmin], [p_cold_vmin p_hot_vmin]/1e3, ':', 'LineWidth',1.2, 'DisplayName','Isochoric (heat)');
+
 
   xlabel('Specific volume v = V_{tot}/m (m^3/kg)','Interpreter','tex');
   ylabel('Pressure p (kPa)','Interpreter','tex');
