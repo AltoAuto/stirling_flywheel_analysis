@@ -476,6 +476,26 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
     saveas(fD, fullfile(OUTDIR, 'FigD_PhaseSweep.png'));
     
     % ---- Jreq vs phase ----
+    % In many textbook Stirling models, Jreq(φ) forms a U-shape: 
+    %   minimum near φ ≈ 90°, maximum toward 60° and 120°. 
+    % This happens when the displacer shuttle volume is large relative to 
+    % the clearance volumes, so shifting φ strongly changes how much gas 
+    % is hot vs cold during compression/expansion. 
+    %
+    % In our Appendix B geometry, the displacer swept volume is 
+    % Vdisp = 3.0e-5 m^3 (peak-to-peak), while each clearance volume is 
+    % Vh0 = Vc0 ≈ 2.35e-4 m^3. That means the shuttle amplitude is only 
+    % ~6% of the clearance size. 
+    %
+    % Because the displacer is small compared to the “dead volumes,” most 
+    % of the gas remains in place regardless of φ. As a result, torque ripple 
+    % (ΔEpp) changes almost monotonically with φ instead of showing a strong 
+    % minimum at 90°. 
+    %
+    % Physically: the timing (phase angle) has only a weak effect on pressure 
+    % distribution when the shuttle volume is small vs clearances. Hence the 
+    % Jreq vs φ curve in this model is not U-shaped but drifts steadily across 
+    % the sweep range. This is a parameter-driven effect, not a coding error.
     fJ = figure('Color','w'); hold on; grid on;
     plot(phis_deg, Jreq, 'LineWidth', 1.8);
     xlabel('\phi (deg)'); ylabel('Required Inertia J_{req} (kg·m^2)');
