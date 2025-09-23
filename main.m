@@ -265,24 +265,25 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
   plot(vv, pp/1e3, 'k-', 'LineWidth', 1.8, 'DisplayName','Engine loop');
 
   % Engine ranges
-  p_min = min(p); p_max = max(p);
-  Vmin  = min(Vtot); Vmax = max(Vtot);
-  vmin  = Vmin/gas.m; vmax = Vmax/gas.m;
+  p_min = min(p); 
+  p_max = max(p);
+  vmin = min(v_spec);
+  vmax = max(v_spec);
 
   % Build ideal Stirling isotherms (hyperbolas) between vmin and vmax
-  mR    = gas.m * gas.R;
+  Rspec = gas.R;
 
   % Base (physical) curves
   v_iso_inc = linspace(vmin, vmax, 400);       % increasing v
   v_iso_dec = linspace(vmax, vmin, 400);       % decreasing v
-  p_hot_phys_inc  = (mR*T.Th) ./ v_iso_inc;    % Th, expand: vmin->vmax
-  p_cold_phys_dec = (mR*T.Tc) ./ v_iso_dec;    % Tc, compress: vmax->vmin
+  p_hot_phys_inc  = (Rspec*T.Th) ./ v_iso_inc;    % Th, expand: vmin->vmax
+  p_cold_phys_dec = (Rspec*T.Tc) ./ v_iso_dec;    % Tc, compress: vmax->vmin
 
   % normalization for visual overlay
   if strcmpi(string(mode),'physical')
     k = 1.0;
   else
-    k = p_max / ((mR*T.Th)/vmin);              % anchor Th at (vmin, p_max)
+    k = p_max / ((Rspec*T.Th)/vmin);       % anchor Th at (vmin, p_max)
   end
   p_hot  = k * p_hot_phys_inc;
   p_cold = k * p_cold_phys_dec;
