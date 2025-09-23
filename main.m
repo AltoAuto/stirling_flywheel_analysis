@@ -249,10 +249,9 @@ function p = pressure_schmidt(Vh, Vc, Vr, T, m, R)
   p = (m*R) ./ ( Vh./T.Th + Vc./T.Tc + Vr./T.Tr );
 end
 
-% used chat to help
+
 %% Fig A: PV diagram showing (1) engine loop and (2) ideal Stirling rectangle.
 function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
-% Fig A: PV diagram showing (1) engine loop and (2) ideal Stirling rectangle.
 % mode: 'normalized' (default) scales ideal to engine p-range; 'physical' uses mRT/v.
 
   if nargin < 7 || isempty(mode), mode = 'normalized'; end
@@ -320,7 +319,6 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
   fprintf('Saved FigA_PV.png\n');
 end
 
-% used chat to help
 %% TORQUE_POWER  Compute instantaneous torque from virtual work, and power by 2 methods.
 function [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, RPM, omega, OUTDIR, do_plot)
 %   Inputs:
@@ -423,7 +421,6 @@ function [omega_th, Cf_sim] = simulateSpeed(theta, Trq, Tload, J, omega_mean, OU
     saveas(fC, fullfile(OUTDIR, 'FigC_Speed.png'));
 end
 
-% used chat to help
 %% PHASE_SWEEP  Vary displacer phase lead phi and generate:
 function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTDIR)
 %   - REQUIRED: Fig D — Work (energy) per cycle vs phase angle
@@ -470,7 +467,7 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
         Jreq(k) = Jk;
     end
     
-    % ---- REQUIRED: Fig D — Work per cycle vs phase ----
+    % ---- Fig D — Work per cycle vs phase ----
     fD = figure('Color','w'); hold on; grid on;
     plot(phis_deg, Wcyc, 'LineWidth', 1.8);
     xlabel('\phi (deg)'); ylabel('Work per cycle W_{cyc} (J)');
@@ -579,7 +576,8 @@ function print_flywheel(fly)
   wall  = getfield_with_default(fly,'wall', ro - ri);
   b     = getfield_with_default(fly,'b', getfield_with_default(fly,'w',NaN));
   t     = getfield_with_default(fly,'t', NaN);
-
+  SF    = getfield_with_default(fly,'SF_yield',NaN);
+  
   fprintf('  Material density  ρ      = %.0f kg/m^3\n', rho);
   fprintf('  Outer radius  r_o       = %.3f m  (OD = %.1f cm)\n', ro, 2*ro*100);
   fprintf('  Inner radius  r_i       = %.3f m  (ID = %.1f cm)\n', ri, 2*ri*100);
@@ -594,13 +592,7 @@ function print_flywheel(fly)
 
   fprintf('  Tip speed v_tip         = %.1f m/s\n', fly.v_tip);
   fprintf('  Hoop stress (thin ring) = %.0f MPa\n', fly.hoop_sigma/1e6);
-
-  if isfield(fly,'yield') && ~isnan(fly.yield)
-    SF = getfield_with_default(fly,'SF_yield',NaN);
-    fprintf('  Yield                   = %.0f MPa', fly.yield/1e6);
-    if ~isnan(SF), fprintf('  (SF_yield ≈ %.2f)', SF); end
-    fprintf('\n');
-  end
+  fprintf('  Safety Factor           = %.0f, SF);
 
   if isfield(fly,'pass_tip')
     fprintf('  Tip-speed check         : %s\n', ternary(fly.pass_tip,'OK','> check'));
