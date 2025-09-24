@@ -43,9 +43,11 @@ function main
     Vdisp      = 4.0e-5;       % displacer volume [m^3]
     geom.Vs_amp = Vdisp/2;     % sinusoid amplitude ⇒ zero-mean shuttle
     
+    % Phase angle
     geom.phi = deg2rad(90);    % phase shift ψ [deg → rad]
     geom.Vr  = 2.00e-5;        % regenerator dead volume [m^3]
-    
+
+
     % Angle grid (keep high resolution)
     theta = linspace(0,2*pi,4000);   % rad
     deg   = theta*180/pi;
@@ -65,7 +67,8 @@ function main
     alpha = 0.5;                 % 50/50 split hot:cold (change if needed)
     geom.Vh0 = alpha     * sum_clearances;
     geom.Vc0 = (1 - alpha) * sum_clearances;
-    
+
+
     % Assumptions
     assume.idealGas     = true;
     assume.isothermal   = true;
@@ -76,11 +79,12 @@ function main
     % Banner
     banner(spec, assume, T, gas, geom, OUTDIR);
     % Print small summary of derived quantities
-    fprintf('Derived from CR: Vconst=%.3e m^3, Vp_max=%.3e m^3, Vh0=%.3e, Vc0=%.3e\n', ...
+    fprintf('Volume (from CR): Vconst=%.3e m^3, Vp_max=%.3e m^3, Vh0=%.3e, Vc0=%.3e\n', ...
             Vconst, Vp_max, geom.Vh0, geom.Vc0);
 
     %% Volume (θ)
     [Vh, Vc, Vtot, Vp, Vs] = volumes(theta, geom);
+
 
     % Check Point
     assert(all(Vh  > 0), 'Negative hot volume detected. Increase Vh0 or adjust geometry.');
@@ -112,13 +116,12 @@ function main
 
     %% Compute Pressure p(θ) Schmidt - style
     p = pressure_schmidt(Vh_eff, Vc_eff, geom.Vr, T, gas.m, gas.R);    % Pa
-   
-    
+
     % specific volume
     v_spec = Vtot ./ gas.m;  
     assert(isvector(v_spec) && isvector(p) && numel(v_spec)==numel(p), 'PV arrays size mismatch.');
     assert(all(isfinite(v_spec)) && all(isfinite(p)), 'NaN/Inf in p or v_spec.');
-    
+
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % By default, plot_pv_cycle overlays a "normalized" ideal Stirling cycle, 
@@ -131,11 +134,43 @@ function main
     %   - "physical" is the exact theoretical reference.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Pressure and Volume (FigA)
-    plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, 'normalized');
+    plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, 'physical');
 
     %%  Torque and Power (Fig B)
     [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, spec.RPM, const.omega, OUTDIR,true);
+      
+    %% === Indicated efficiency metrics (per cycle) ===
+    % Use consistent Wcyc and v_spec (Vtot/gas.m) from the *correct* model path.
     
+    % Specific engine work from your model (J/kg·cycle)
+    W_engine_spec = Wcyc / gas.m;
+    
+    % v-range for ideal cycle reference (specific volume)
+    vmin = min(v_spec); 
+    vmax = max(v_spec);
+    lnCRv = log(vmax/vmin);                      % "volumetric CR" on specific-basis
+    
+    % Ideal Stirling references (perfect regeneration, isothermal)
+    W_ideal_spec = gas.R * (T.Th - T.Tc) * lnCRv;   % J/kg·cycle
+    Qin_ideal_spec = gas.R * T.Th * lnCRv;          % J/kg·cycle
+    
+    % 1) “Cycle utilization” vs ideal Stirling work (how much of the ideal rectangle you realize)
+    eta_util = W_engine_spec / max(W_ideal_spec, 1e-12);
+    
+    % 2) Indicated thermal efficiency vs the ideal heat input (with perfect regen)
+    %    (This is your modeled W divided by the ideal Stirling Q_in.)
+    eta_i = W_engine_spec / max(Qin_ideal_spec, 1e-12);
+    
+    % 3) Theoretical (Carnot/Stirling-ideal) thermal efficiency, for reference
+    eta_ideal = 1 - T.Tc / T.Th;
+    
+    fprintf('\nEFFICIENCY CHECKS (per cycle)\n');
+    fprintf('  W_engine_spec   = %.0f J/kg·cycle\n', W_engine_spec);
+    fprintf('  W_ideal_spec    = %.0f J/kg·cycle\n', W_ideal_spec);
+    fprintf('  Qin_ideal_spec  = %.0f J/kg·cycle\n', Qin_ideal_spec);
+    fprintf('  eta_util        = %.3f  (W_engine / W_ideal)\n', eta_util);
+    fprintf('  eta_i           = %.3f  (W_engine / Qin_ideal)\n', eta_i);
+    fprintf('  eta_ideal_ref   = %.3f  (1 - Tc/Th)\n\n', eta_ideal);
     % Print summary for the report
     relErr = abs(P1 - P2) / max(abs(P2), 1e-12);
     fprintf('Torque/Power summary:\n');
@@ -143,7 +178,7 @@ function main
     fprintf('  Mean torque     Tmean  = %.6g N·m\n', Tmean);
     fprintf('  Power (P1= W*f)       = %.6g W\n', P1);
     fprintf('  Power (P2= Tmean*ω)   = %.6g W\n', P2);
-    fprintf('  |P1-P2|/P2            = %.3f %%\n', 100*relErr);
+    fprintf('  |P1-P2|/P2            = %.3f %%\n\n', 100*relErr);
 
     %%  Energy deviation and required J (Fig C) 
     [Ed, Epp, Jreq] = energy_and_inertia(theta, Trq, Tmean, const.omega, spec.Cf, OUTDIR,true);
@@ -153,7 +188,7 @@ function main
     fprintf('Energy buffer & flywheel sizing summary:\n');
     fprintf('  Epp (peak-to-peak energy)  = %.6g J\n', Epp);
     fprintf('  Jreq (initial or corrected) = %.6g kg·m^2\n', Jreq);
-    fprintf('  Cf_sim (from speed curve)   = %.3f %%  (target %.3f %%)\n', 100*Cf_sim, 100*spec.Cf);
+    fprintf('  Cf_sim (from speed curve)   = %.3f %%  (target %.3f %%)\n\n', 100*Cf_sim, 100*spec.Cf);
 
 
     %% Phase sweep (Fig D)
@@ -165,6 +200,7 @@ function main
     fprintf('Phase sweep summary:\n');
     fprintf('  Max work at phi = %g deg: Wcyc = %.6g J/cycle\n', phis_deg(koptW), resultsD.Wcyc(koptW));
     fprintf('  Min Jreq at phi = %g deg: Jreq = %.6g kg·m^2\n', phis_deg(koptJ), resultsD.Jreq(koptJ));
+
 
     %% Flywheel geometry
     fly_in.rho      = 7850;   % steel
@@ -231,7 +267,6 @@ function plot_volumes(deg, Vh, Vc, Vp, Vtot, OUTDIR)
     title('Diagnostic: Volumes vs. Crank Angle');
     xlim([0 360]); legend('Location','best');
     saveas(f, fullfile(OUTDIR, 'Fig0_Volumes.png'));
-    fprintf('Saved as Fig0_Volumes.png\n');
 end
 
 function x = ensure_col(x)
@@ -252,9 +287,6 @@ end
 
 %% Fig A: PV diagram showing (1) engine loop and (2) ideal Stirling rectangle.
 function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
-% mode: 'normalized' (default) scales ideal to engine p-range; 'physical' uses mRT/v.
-
-  if nargin < 7 || isempty(mode), mode = 'normalized'; end
 
   % Ensure columns & close engine loop
   v_spec = v_spec(:); p = p(:);
@@ -279,14 +311,9 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
   p_hot_phys_inc  = (Rspec*T.Th) ./ v_iso_inc;    % Th, expand: vmin->vmax
   p_cold_phys_dec = (Rspec*T.Tc) ./ v_iso_dec;    % Tc, compress: vmax->vmin
 
-  % normalization for visual overlay
-  if strcmpi(string(mode),'physical')
-    k = 1.0;
-  else
-    k = p_max / ((Rspec*T.Th)/vmin);       % anchor Th at (vmin, p_max)
-  end
-  p_hot  = k * p_hot_phys_inc;
-  p_cold = k * p_cold_phys_dec;
+
+  p_hot  = p_hot_phys_inc;
+  p_cold = p_cold_phys_dec;
 
   % Corner pressures (shared exactly by segments to avoid gaps)
   p_hot_vmax  = p_hot(end);                    % Th at v = vmax
@@ -317,7 +344,6 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
   ylim([(p_min-ypad)/1e3, (p_max+ypad)/1e3]);
 
   saveas(f, fullfile(OUTDIR,'FigA_PV.png'));
-  fprintf('Saved FigA_PV.png\n');
 end
 
 %% TORQUE_POWER  Compute instantaneous torque from virtual work, and power by 2 methods.
@@ -456,13 +482,18 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
         
         % Volumes → Pressure → Torque/Power
         [Vh, Vc, Vtot, Vp, Vs] = volumes(theta, geom);
-        p = pressure_schmidt(Vh, Vc, geom.Vr, T, gas.m, gas.R);
+        
+        % Use effective hot/cold volumes for the pressure model (beta-type):
+        Vh_eff = Vh;
+        Vc_eff = Vc + Vp;             % include power-piston volume in the cold space
+        
+        p = pressure_schmidt(Vh_eff, Vc_eff, geom.Vr, T, gas.m, gas.R);
         % Use a throwaway OUTDIR for per-phi internals to avoid clutter
         [Trq, Wk, ~, ~, Tmean] = torque_power(theta, p, Vtot, spec.RPM, const.omega, [], false);
         
         % Store work per cycle (required for Fig D)
         Wcyc(k) = Wk;
-        
+
         % Energy deviation → required inertia at this phi
         [~, ~, Jk] = energy_and_inertia(theta, Trq, Tmean, const.omega, spec.Cf, [], false);
         Jreq(k) = Jk;
@@ -613,7 +644,7 @@ function print_flywheel(fly)
 
   fprintf('  Tip speed v_tip         = %.1f m/s\n', fly.v_tip);
   fprintf('  Hoop stress (thin ring) = %.0f MPa\n', fly.hoop_sigma/1e6);
-  fprintf('  Safety Factor           = %.0f, SF);
+  fprintf('  Safety Factor           = %.0f\n', SF);
 
   if isfield(fly,'pass_tip')
     fprintf('  Tip-speed check         : %s\n', ternary(fly.pass_tip,'OK','> check'));
@@ -631,4 +662,3 @@ end
 function out = ternary(cond, a, b)
   if cond, out = a; else, out = b; end
 end
-
