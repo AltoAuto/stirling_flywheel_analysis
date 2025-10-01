@@ -379,7 +379,7 @@ function [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, RPM, omega, O
       hold on; grid on; box on;
       plot(theta*180/pi, Trq, 'LineWidth', 1.8);
       xlabel('\theta (deg)'); ylabel('Torque T(\theta) (N·m)');
-      title('Fig B — Torque vs. Crank Angle');
+      title('Torque vs. Crank Angle');
       xlim([0 360]);
       box off; 
       grid off;
