@@ -24,7 +24,8 @@ The project models a Stirling engine with crank–slider kinematics for both the
   * Torque vs. crank angle
   * Rotational velocity vs. crank angle
   * Energy per cycle vs. phase angle
-  * Summary table with power, inertia, and flywheel dimensions
+  * Required inertia vs. phase angle
+  * Summary table with flywheel dimensions
 
 ---
 
