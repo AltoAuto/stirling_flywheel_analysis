@@ -44,9 +44,9 @@ function main
     geom.Vs_amp = Vdisp/2;     % sinusoid amplitude ⇒ zero-mean shuttle
     
     % Phase angle
-    geom.phi = deg2rad(90);    % phase shift ψ [deg → rad]
+    phase_angle = 90;           % phase angle [deg]
+    geom.phi = deg2rad(phase_angle);    % phase shift ψ [deg → rad]
     geom.Vr  = 2.00e-5;        % regenerator dead volume [m^3]
-
 
     % Angle grid (keep high resolution)
     theta = linspace(0,2*pi,4000);   % rad
@@ -85,7 +85,6 @@ function main
     %% Volume (θ)
     [Vh, Vc, Vtot, Vp, Vs] = volumes(theta, geom);
 
-
     % Check Point
     assert(all(Vh  > 0), 'Negative hot volume detected. Increase Vh0 or adjust geometry.');
     assert(all(Vc  > 0), 'Negative cold volume detected. Increase Vc0 or adjust geometry.');
@@ -122,26 +121,12 @@ function main
     assert(isvector(v_spec) && isvector(p) && numel(v_spec)==numel(p), 'PV arrays size mismatch.');
     assert(all(isfinite(v_spec)) && all(isfinite(p)), 'NaN/Inf in p or v_spec.');
 
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % By default, plot_pv_cycle overlays a "normalized" ideal Stirling cycle, 
-    % scaled to the engine’s pressure range to allow direct comparison with 
-    % the simulated loop. Passing the option "physical" instead produces the 
-    % textbook ideal cycle based on the calibrated gas mass and volumes. 
-    % In that case, the cycle pressures will be orders of magnitude smaller 
-    % and may appear near zero on the plot. Both modes are correct: 
-    %   - "normalized" is intended for visual comparison, 
-    %   - "physical" is the exact theoretical reference.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Pressure and Volume (FigA)
-    plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, 'physical');
+    plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR);
 
     %%  Torque and Power (Fig B)
-    [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, spec.RPM, const.omega, OUTDIR,true);
-      
-    %% === Indicated efficiency metrics (per cycle) ===
-    % Use consistent Wcyc and v_spec (Vtot/gas.m) from the *correct* model path.
-    
+    [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, spec.RPM, const.omega, OUTDIR, true);
+         
     % Specific engine work from your model (J/kg·cycle)
     W_engine_spec = Wcyc / gas.m;
     
@@ -171,6 +156,7 @@ function main
     fprintf('  eta_util        = %.3f  (W_engine / W_ideal)\n', eta_util);
     fprintf('  eta_i           = %.3f  (W_engine / Qin_ideal)\n', eta_i);
     fprintf('  eta_ideal_ref   = %.3f  (1 - Tc/Th)\n\n', eta_ideal);
+
     % Print summary for the report
     relErr = abs(P1 - P2) / max(abs(P2), 1e-12);
     fprintf('Torque/Power summary:\n');
@@ -186,13 +172,13 @@ function main
     [omega_th, Cf_sim] = simulateSpeed(theta, Trq, Tmean, Jreq, const.omega, OUTDIR);
     
     fprintf('Energy buffer & flywheel sizing summary:\n');
-    fprintf('  Epp (peak-to-peak energy)  = %.6g J\n', Epp);
-    fprintf('  Jreq (initial or corrected) = %.6g kg·m^2\n', Jreq);
-    fprintf('  Cf_sim (from speed curve)   = %.3f %%  (target %.3f %%)\n\n', 100*Cf_sim, 100*spec.Cf);
+    fprintf('  Epp  = %.6g J\n', Epp);
+    fprintf('  Jreq = %.6g kg·m^2\n', Jreq);
+    fprintf('  Cf_sim = %.3f %%  (target %.3f %%)\n\n', 100*Cf_sim, 100*spec.Cf);
 
 
     %% Phase sweep (Fig D)
-    phis_deg = 60:1:120;
+    phis_deg = 0:1:360;
     resultsD = phase_sweep(phis_deg, theta, geom, T, gas, const, spec, OUTDIR);
     
     [~, koptW] = max(resultsD.Wcyc);
@@ -213,7 +199,6 @@ function main
     print_flywheel(fly);
 
 end
-
 
 
 
@@ -266,6 +251,8 @@ function plot_volumes(deg, Vh, Vc, Vp, Vtot, OUTDIR)
     xlabel('\theta (deg)'); ylabel('Volume (m^3)');
     title('Diagnostic: Volumes vs. Crank Angle');
     xlim([0 360]); legend('Location','best');
+    box off; 
+    grid off;
     saveas(f, fullfile(OUTDIR, 'Fig0_Volumes.png'));
 end
 
@@ -286,7 +273,7 @@ end
 
 
 %% Fig A: PV diagram showing (1) engine loop and (2) ideal Stirling rectangle.
-function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
+function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR)
 
   % Ensure columns & close engine loop
   v_spec = v_spec(:); p = p(:);
@@ -334,9 +321,12 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR, mode)
   plot([vmin vmin], [p_cold_vmin p_hot_vmin]/1e3, ':', 'LineWidth',1.2, 'DisplayName','Isochoric (heat)');
 
 
+  % ---- Fig A — PV Diagram (Engine vs. Ideal Stirling) ----
   xlabel('Specific volume v = V_{tot}/m (m^3/kg)','Interpreter','tex');
   ylabel('Pressure p (kPa)','Interpreter','tex');
   title('Fig A — PV Diagram (Engine vs. Ideal Stirling)');
+  box off; 
+  grid off;
   legend('Location','best');
 
   % Nice axes padding
@@ -380,15 +370,25 @@ function [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, RPM, omega, O
     P2 = Tmean * omega;               % W  (avg torque × angular speed)
     
     
-    % plot
-    if do_plot && ~isempty(OUTDIR)
-        fB = figure('Color','w','Visible','off'); hold on; grid on;
-        plot(theta*180/pi, Trq, 'LineWidth', 1.8);
-        xlabel('\theta (deg)'); ylabel('Torque T(\theta) (N·m)');
-        title('Fig B — Torque vs. Crank Angle');
-        xlim([0 360]); box on;
-        saveas(fB, fullfile(OUTDIR, 'FigB_Torque.png'));
-    end
+  % ---- Fig B — Torque vs. Crank Angle ----
+  if do_plot
+      if nargin < 6 || isempty(OUTDIR), OUTDIR = pwd; end
+      if ~exist(OUTDIR,'dir'), mkdir(OUTDIR); end
+
+      fB = figure('Color','w','Visible','on');  % show & save
+      hold on; grid on; box on;
+      plot(theta*180/pi, Trq, 'LineWidth', 1.8);
+      xlabel('\theta (deg)'); ylabel('Torque T(\theta) (N·m)');
+      title('Fig B — Torque vs. Crank Angle');
+      xlim([0 360]);
+      box off; 
+      grid off;
+      fn = fullfile(OUTDIR, 'FigB_Torque.png');
+      drawnow;
+      saveas(fB, fn);
+      drawnow;
+
+  end
 end
 
 %% ENERGY_AND_INERTIA
@@ -437,14 +437,16 @@ function [omega_th, Cf_sim] = simulateSpeed(theta, Trq, Tload, J, omega_mean, OU
     omega_th = sqrt(omega2);
     
     om_mean  = mean(omega_th);
+
+    % DO NOT USE min(om_mean, 1e-12)
     Cf_sim   = (max(omega_th) - min(omega_th)) / max(om_mean, 1e-12);
     
     % ---- Fig C: Speed vs crank angle ----
     fC = figure('Color','w'); hold on; grid on;
     plot(theta*180/pi, omega_th, 'LineWidth', 1.8);
     xlabel('\theta (deg)'); ylabel('\omega(\theta) (rad/s)');
-    title('Fig C — Speed vs. Crank Angle');
-    xlim([0 360]); box on;
+    title('Speed vs. Crank Angle');
+    xlim([0 360]); box off; grid off;
     saveas(fC, fullfile(OUTDIR, 'FigC_Speed.png'));
 end
 
@@ -504,10 +506,10 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
     plot(phis_deg, Wcyc, 'LineWidth', 1.8);
     xlabel('\phi (deg)'); ylabel('Work per cycle W_{cyc} (J)');
     title('Fig D — Energy/Work per Cycle vs. Phase Angle');
-    xlim([min(phis_deg) max(phis_deg)]); box on;
+    xlim([min(phis_deg) max(phis_deg)]); box off; grid off;
     saveas(fD, fullfile(OUTDIR, 'FigD_PhaseSweep.png'));
-    
-    % ---- Jreq vs phase ----
+    % ---- Fig E — J_{req} vs. Phase Angle ----
+    % ---- !NOTE!----
     % In many textbook Stirling models, Jreq(φ) forms a U-shape: 
     %   minimum near φ ≈ 90°, maximum toward 60° and 120°. 
     % This happens when the displacer shuttle volume is large relative to 
@@ -534,7 +536,8 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
     title('J_{req} vs. Phase Angle (Optional)');
     xlim([min(phis_deg) max(phis_deg)]); box on;
     saveas(fJ, fullfile(OUTDIR, 'FigD_Jreq_vs_Phase.png'));
-    
+    grid off;
+    box off;
     % Return data
     out.Wcyc = Wcyc;
     out.Jreq = Jreq;
@@ -600,26 +603,26 @@ function fly = sizeFlywheel_minD(Jreq, in, omega)
     SF_yield = yield / hoop_sigma;
     pass_s   = SF_yield >= 2.0;    % target SF≥2
   end
-
-  fly = struct();
-  fly.rho        = rho;
-  fly.w          = w;
-  fly.t          = t;
-  fly.ro         = ro;
-  fly.ri         = ri;
-  fly.D          = D;
-  fly.mass       = mass;
-  fly.J          = J;
-  fly.Jreq_in    = Jreq;
-  fly.v_tip      = v_tip;
-  fly.hoop_sigma = hoop_sigma;
-  fly.SF_yield   = SF_yield;
-  fly.pass_tip   = pass_v;
-  fly.pass_yield = pass_s;
+    
+    fly = struct();
+    fly.rho        = rho;
+    fly.w          = w;
+    fly.t          = t;
+    fly.ro         = ro;
+    fly.ri         = ri;
+    fly.D          = D;
+    fly.mass       = mass;
+    fly.J          = J;
+    fly.Jreq_in    = Jreq;
+    fly.v_tip      = v_tip;
+    fly.hoop_sigma = hoop_sigma;
+    fly.SF_yield   = SF_yield;
+    fly.pass_tip   = pass_v;
+    fly.pass_yield = pass_s;
 end
 
-% Styled by chatgpt
-function print_flywheel(fly)
+% styled by chatgpt
+function print_flywheel(fly) 
   fprintf('\nFlywheel design (uniform annulus):\n');
 
   rho   = getfield_with_default(fly,'rho',NaN);
@@ -647,10 +650,10 @@ function print_flywheel(fly)
   fprintf('  Safety Factor           = %.0f\n', SF);
 
   if isfield(fly,'pass_tip')
-    fprintf('  Tip-speed check         : %s\n', ternary(fly.pass_tip,'OK','> check'));
+    fprintf('  Tip-speed check         : %s\n', ternary(fly.pass_tip,'SAFE','> check'));
   end
   if isfield(fly,'pass_yield')
-    fprintf('  Yield-stress check      : %s\n', ternary(fly.pass_yield,'OK','> check'));
+    fprintf('  Yield-stress check      : %s\n', ternary(fly.pass_yield,'SAFE','> check'));
   end
 end
 
