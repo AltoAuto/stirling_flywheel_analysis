@@ -249,7 +249,7 @@ function plot_volumes(deg, Vh, Vc, Vp, Vtot, OUTDIR)
     plot(deg, Vp,  'LineWidth',1.5, 'DisplayName','V_p(\theta)');
     plot(deg, Vtot,'k','LineWidth',2.0, 'DisplayName','V_{tot}(\theta)');
     xlabel('\theta (deg)'); ylabel('Volume (m^3)');
-    title('Diagnostic: Volumes vs. Crank Angle');
+    title('Volumes vs. Crank Angle');
     xlim([0 360]); legend('Location','best');
     box off; 
     grid off;
@@ -505,7 +505,7 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
     fD = figure('Color','w'); hold on; grid on;
     plot(phis_deg, Wcyc, 'LineWidth', 1.8);
     xlabel('\phi (deg)'); ylabel('Work per cycle W_{cyc} (J)');
-    title('Fig D — Energy/Work per Cycle vs. Phase Angle');
+    title('Energy/Work per Cycle vs. Phase Angle');
     xlim([min(phis_deg) max(phis_deg)]); box off; grid off;
     saveas(fD, fullfile(OUTDIR, 'FigD_PhaseSweep.png'));
     % ---- Fig E — J_{req} vs. Phase Angle ----
