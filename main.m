@@ -324,7 +324,7 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR)
   % ---- Fig A — PV Diagram (Engine vs. Ideal Stirling) ----
   xlabel('Specific volume v = V_{tot}/m (m^3/kg)','Interpreter','tex');
   ylabel('Pressure p (kPa)','Interpreter','tex');
-  title('Fig A — PV Diagram (Engine vs. Ideal Stirling)');
+  title('PV Diagram (Engine vs. Ideal Stirling)');
   box off; 
   grid off;
   legend('Location','best');
