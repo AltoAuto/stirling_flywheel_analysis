@@ -1,6 +1,7 @@
 % Stirling Engine Analysis & Flywheel Design 
 
 function main
+close all; clc;
 
     %% HOUSE KEEPING
     format compact
@@ -240,10 +241,12 @@ function [Vh, Vc, Vtot, Vp, Vs] = volumes(theta, g)
     % --- Total volume ---
     Vtot = Vh + Vc + Vp + g.Vr;
 end
-
 function plot_volumes(deg, Vh, Vc, Vp, Vtot, OUTDIR)
 % Save a diagnostic figure to confirm kinematics/volumes are sensible.
-    f = figure('Color','w'); hold on; grid on; box on;
+    if ~exist(OUTDIR,'dir'), mkdir(OUTDIR); end
+
+    f = figure('Color','w','Visible','off'); 
+    hold on; 
     plot(deg, Vh,  'LineWidth',1.5, 'DisplayName','V_h(\theta)');
     plot(deg, Vc,  'LineWidth',1.5, 'DisplayName','V_c(\theta)');
     plot(deg, Vp,  'LineWidth',1.5, 'DisplayName','V_p(\theta)');
@@ -251,10 +254,23 @@ function plot_volumes(deg, Vh, Vc, Vp, Vtot, OUTDIR)
     xlabel('\theta (deg)'); ylabel('Volume (m^3)');
     title('Volumes vs. Crank Angle');
     xlim([0 360]); legend('Location','best');
-    box off; 
-    grid off;
-    saveas(f, fullfile(OUTDIR, 'Fig0_Volumes.png'));
+    grid on; box on;
+
+    % Set figure size (inches)
+    w = 5.5; h = 2.99;
+    set(f,'Units','inches','Position',[1 1 w h]);
+    set(f,'PaperUnits','inches','PaperSize',[w h], ...
+           'PaperPosition',[0 0 w h],'PaperPositionMode','manual');
+
+    % Save high-res PNG (600 dpi)
+    fn_png = fullfile(OUTDIR,'Fig0_Volumes.png');
+    print(f, fn_png, '-dpng','-r600');
+
+    % Optional: also save a vector PDF
+    fn_pdf = fullfile(OUTDIR,'Fig0_Volumes.pdf');
+    print(f, fn_pdf, '-dpdf');
 end
+
 
 function x = ensure_col(x)
     if isrow(x), x = x.'; end
@@ -280,7 +296,7 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR)
   vv = [v_spec; v_spec(1)];
   pp = [p;      p(1)];
 
-  f = figure('Color','w'); hold on; grid on; box on;
+  f = figure('Color','w'); hold on; grid off; box off;
   plot(vv, pp/1e3, 'k-', 'LineWidth', 1.8, 'DisplayName','Engine loop');
 
   % Engine ranges
@@ -322,18 +338,20 @@ function plot_pv_cycle(v_spec, p, gas, T, Vtot, OUTDIR)
 
 
   % ---- Fig A — PV Diagram (Engine vs. Ideal Stirling) ----
-  xlabel('Specific volume v = V_{tot}/m (m^3/kg)','Interpreter','tex');
-  ylabel('Pressure p (kPa)','Interpreter','tex');
-  title('PV Diagram (Engine vs. Ideal Stirling)');
-  box off; 
-  grid off;
-  legend('Location','best');
+    xlabel('Specific volume v = V_{tot}/m (m^3/kg)','Interpreter','tex');
+    ylabel('Pressure p (kPa)','Interpreter','tex');
+    title('PV Diagram (Engine vs. Ideal Stirling)');
+    box off; 
+    grid off;
+    legend('Location','best');
 
-  % Nice axes padding
-  ypad = 0.05*(p_max - p_min + eps);
-  ylim([(p_min-ypad)/1e3, (p_max+ypad)/1e3]);
-
-  saveas(f, fullfile(OUTDIR,'FigA_PV.png'));
+  % Save Plot
+    w = 5.5;   % width in inches
+    h = 2.99;  % height in inches
+    set(f, 'Units','inches', 'Position',[1 1 w h]);     % on-screen size
+    set(f, 'PaperUnits','inches', 'PaperSize',[w h]);   % paper size
+    set(f, 'PaperPosition',[0 0 w h], 'PaperPositionMode','manual');
+    print(f, fullfile(OUTDIR,'FigA_PV.png'), '-dpng', '-r600');  % 600 dpi
 end
 
 %% TORQUE_POWER  Compute instantaneous torque from virtual work, and power by 2 methods.
@@ -369,26 +387,28 @@ function [Trq, Wcyc, P1, P2, Tmean] = torque_power(theta, p, Vtot, RPM, omega, O
     P1 = Wcyc * f;                    % W  (work per cycle × cycles/sec)
     P2 = Tmean * omega;               % W  (avg torque × angular speed)
     
+
+    % ---- Fig B — Torque vs. Crank Angle ----
+    if do_plot
+        if nargin < 6 || isempty(OUTDIR), OUTDIR = pwd; end
+        if ~exist(OUTDIR,'dir'), mkdir(OUTDIR); end
     
-  % ---- Fig B — Torque vs. Crank Angle ----
-  if do_plot
-      if nargin < 6 || isempty(OUTDIR), OUTDIR = pwd; end
-      if ~exist(OUTDIR,'dir'), mkdir(OUTDIR); end
-
-      fB = figure('Color','w','Visible','on');  % show & save
-      hold on; grid on; box on;
-      plot(theta*180/pi, Trq, 'LineWidth', 1.8);
-      xlabel('\theta (deg)'); ylabel('Torque T(\theta) (N·m)');
-      title('Torque vs. Crank Angle');
-      xlim([0 360]);
-      box off; 
-      grid off;
-      fn = fullfile(OUTDIR, 'FigB_Torque.png');
-      drawnow;
-      saveas(fB, fn);
-      drawnow;
-
-  end
+        fB = figure('Color','w','Visible','on');  
+        plot(theta*180/pi, Trq, 'LineWidth', 1.8);
+        xlabel('\theta (deg)'); ylabel('Torque T(\theta) (N·m)');
+        title('Torque vs. Crank Angle');
+        xlim([0 360]); grid off; box off;
+    
+        % Set figure size in inches
+        w = 5.5; h = 2.99;
+        set(fB,'Units','inches','Position',[1 1 w h]);
+        set(fB,'PaperUnits','inches','PaperSize',[w h], ...
+               'PaperPosition',[0 0 w h],'PaperPositionMode','manual');
+    
+        % Save high-resolution PNG (600 dpi)
+        fn = fullfile(OUTDIR, 'FigB_Torque.png');
+        print(fB, fn, '-dpng','-r600');
+    end
 end
 
 %% ENERGY_AND_INERTIA
@@ -410,13 +430,26 @@ function [Ed, Epp, Jreq] = energy_and_inertia(theta, Trq, Tmean, omega, Cf_targe
     
     % plot
     if do_plot && ~isempty(OUTDIR)
-        fE = figure('Color','w','Visible','off'); hold on; grid on;
+        fE = figure('Color','w','Visible','off'); 
         plot(theta*180/pi, Ed, 'LineWidth', 1.8);
         xlabel('\theta (deg)'); ylabel('\DeltaE(\theta) (J)');
         title('Energy Deviation over Cycle');
-        xlim([0 360]); box on;
-        saveas(fE, fullfile(OUTDIR, 'FigE_EnergyDeviation.png'));
-        close(fE);
+        xlim([0 360]); grid off; box off;
+    
+        % Set figure size (inches)
+        w = 5.5; h = 2.99;
+        set(fE,'Units','inches','Position',[1 1 w h]);
+        set(fE,'PaperUnits','inches','PaperSize',[w h], ...
+               'PaperPosition',[0 0 w h],'PaperPositionMode','manual');
+    
+        % Save high-res PNG (600 dpi)
+        fn_png = fullfile(OUTDIR,'FigE_EnergyDeviation.png');
+        print(fE, fn_png, '-dpng','-r600');
+    
+        % Optional: save vector PDF for perfectly crisp lines
+        fn_pdf = fullfile(OUTDIR,'FigE_EnergyDeviation.pdf');
+        print(fE, fn_pdf, '-dpdf');
+    
     end
 end
 
@@ -442,12 +475,28 @@ function [omega_th, Cf_sim] = simulateSpeed(theta, Trq, Tload, J, omega_mean, OU
     Cf_sim   = (max(omega_th) - min(omega_th)) / max(om_mean, 1e-12);
     
     % ---- Fig C: Speed vs crank angle ----
-    fC = figure('Color','w'); hold on; grid on;
-    plot(theta*180/pi, omega_th, 'LineWidth', 1.8);
-    xlabel('\theta (deg)'); ylabel('\omega(\theta) (rad/s)');
-    title('Speed vs. Crank Angle');
-    xlim([0 360]); box off; grid off;
-    saveas(fC, fullfile(OUTDIR, 'FigC_Speed.png'));
+    if ~isempty(OUTDIR)
+        fC = figure('Color','w','Visible','off'); 
+        plot(theta*180/pi, omega_th, 'LineWidth', 1.8);
+        xlabel('\theta (deg)'); ylabel('\omega(\theta) (rad/s)');
+        title('Speed vs. Crank Angle');
+        xlim([0 360]); grid off; box off;
+    
+        % Set figure size (inches)
+        w = 5.5; h = 2.99;
+        set(fC,'Units','inches','Position',[1 1 w h]);
+        set(fC,'PaperUnits','inches','PaperSize',[w h], ...
+               'PaperPosition',[0 0 w h],'PaperPositionMode','manual');
+    
+        % Save high-res PNG (600 dpi)
+        fn_png = fullfile(OUTDIR,'FigC_Speed.png');
+        print(fC, fn_png, '-dpng','-r600');
+    
+        % Optional: also save vector PDF for crisp lines
+        fn_pdf = fullfile(OUTDIR,'FigC_Speed.pdf');
+        print(fC, fn_pdf, '-dpdf');
+
+    end
 end
 
 %% PHASE_SWEEP  Vary displacer phase lead phi and generate:
@@ -502,12 +551,27 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
     end
     
     % ---- Fig D — Work per cycle vs phase ----
-    fD = figure('Color','w'); hold on; grid on;
-    plot(phis_deg, Wcyc, 'LineWidth', 1.8);
-    xlabel('\phi (deg)'); ylabel('Work per cycle W_{cyc} (J)');
-    title('Energy/Work per Cycle vs. Phase Angle');
-    xlim([min(phis_deg) max(phis_deg)]); box off; grid off;
-    saveas(fD, fullfile(OUTDIR, 'FigD_PhaseSweep.png'));
+    if ~isempty(OUTDIR)
+        fD = figure('Color','w','Visible','off'); 
+        plot(phis_deg, Wcyc, 'LineWidth', 1.8);
+        xlabel('\phi (deg)'); ylabel('Work per cycle W_{cyc} (J)');
+        title('Energy/Work per Cycle vs. Phase Angle');
+        xlim([min(phis_deg) max(phis_deg)]); grid off; box off;
+    
+        % Set figure size (inches)
+        w = 5.5; h = 2.99;
+        set(fD,'Units','inches','Position',[1 1 w h]);
+        set(fD,'PaperUnits','inches','PaperSize',[w h], ...
+               'PaperPosition',[0 0 w h],'PaperPositionMode','manual');
+    
+        % Save high-res PNG (600 dpi)
+        fn_png = fullfile(OUTDIR,'FigD_PhaseSweep.png');
+        print(fD, fn_png, '-dpng','-r600');
+    
+        % Optional: also save vector PDF
+        fn_pdf = fullfile(OUTDIR,'FigD_PhaseSweep.pdf');
+        print(fD, fn_pdf, '-dpdf');
+    end
     % ---- Fig E — J_{req} vs. Phase Angle ----
     % ---- !NOTE!----
     % In many textbook Stirling models, Jreq(φ) forms a U-shape: 
@@ -530,14 +594,21 @@ function out = phase_sweep(phis_deg, theta, geom_base, T, gas, const, spec, OUTD
     % distribution when the shuttle volume is small vs clearances. Hence the 
     % Jreq vs φ curve in this model is not U-shaped but drifts steadily across 
     % the sweep range. This is a parameter-driven effect, not a coding error.
-    fJ = figure('Color','w'); hold on; grid on;
+    fJ = figure('Color','w','Visible','off'); 
     plot(phis_deg, Jreq, 'LineWidth', 1.8);
     xlabel('\phi (deg)'); ylabel('Required Inertia J_{req} (kg·m^2)');
-    title('J_{req} vs. Phase Angle (Optional)');
-    xlim([min(phis_deg) max(phis_deg)]); box on;
-    saveas(fJ, fullfile(OUTDIR, 'FigD_Jreq_vs_Phase.png'));
-    grid off;
-    box off;
+    title('Required Inertia vs. Phase Angle');
+    xlim([min(phis_deg) max(phis_deg)]); 
+    grid off; box off;
+    % Set figure size (inches)
+    w = 5.5; h = 2.99;
+    set(fJ,'Units','inches','Position',[1 1 w h]);
+    set(fJ,'PaperUnits','inches','PaperSize',[w h], ...
+           'PaperPosition',[0 0 w h],'PaperPositionMode','manual');
+    % Save high-res PNG (600 dpi)
+    fn_png = fullfile(OUTDIR,'FigJ_Jreq_vs_Phase.png');
+    print(fJ, fn_png, '-dpng','-r600');
+
     % Return data
     out.Wcyc = Wcyc;
     out.Jreq = Jreq;
